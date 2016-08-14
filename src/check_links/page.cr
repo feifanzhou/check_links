@@ -1,5 +1,41 @@
 require "http/client"
 
+class URI
+  def absolute_with_host?
+    !self.host.nil?
+  end
+
+  def absolute?
+    self.full_path.char_at(0) == '/'
+  end
+
+  def relative?
+    !absolute?
+  end
+
+  def at_root?
+    self.full_path == "/"
+  end
+
+  def resolve_to(target_url)
+    clone = self.dup
+    if target_url.absolute_with_host?
+      return target_url
+    elsif clone.at_root? && target_url.relative?
+      clone.path = "/#{target_url.full_path}"
+    elsif target_url.absolute?
+      clone_host = clone.host || ""
+      clone.path = target_url.to_s
+    elsif target_url.relative?
+      appendable_target = clone.full_path.char_at(-1) == '/' ? target_url.to_s : "/#{target_url}"
+      clone.path = "#{clone.full_path}#{appendable_target}"
+    else
+      raise Exception.new("Unknown condition resolving #{clone.to_s} to #{target_url.to_s}")
+    end
+    clone
+  end
+end
+
 module CheckLinks
   struct Page
     getter :url, :source_url, :hashes, :links
@@ -50,7 +86,8 @@ module CheckLinks
     end
 
     private def outbound_links(xml_doc)
-      attribute_values(xml_doc, "//@href")
+      raw_links = attribute_values(xml_doc, "//@href")
+      raw_links.map { |link| @source_url.resolve_to(URI.parse(link)).to_s }
     end
 
     private def attribute_values(xml_doc, xpath)

@@ -35,13 +35,13 @@ module CheckLinks
       page.links.size.should eq(3)
     end
 
-    it "extracts the correct links" do
+    it "extracts correct, absolute links" do
       target_url = "http://localhost:9999/#{LINK_PATH}"
-      links = Page.new(target_url, "source.com").links
-      links.includes?("/1").should be_true
-      links.includes?("/2").should be_true
-      links.includes?("/3").should be_true
-      links.includes?("/4").should be_false
+      links = Page.new(target_url, "http://source.com/page").links
+      links.includes?("http://source.com/1").should be_true
+      links.includes?("http://source.com/page/2").should be_true
+      links.includes?("http://localhost/3").should be_true
+      links.includes?("http://localhost/4").should be_false
     end
 
     it "extracts hashes from every id attribute" do
