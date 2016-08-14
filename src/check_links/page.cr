@@ -2,19 +2,20 @@ require "http/client"
 
 module CheckLinks
   struct Page
-    getter :url, :source_url, :hashes
+    getter :url, :source_url, :hashes, :links
 
     def initialize(source_url : String)
       @source_url = URI.parse(source_url)
       @url = URI.parse(source_url)
       @loaded = false
+      @exists = false
+      @hashes = [] of String
+      @links = [] of String
     end
 
     def initialize(target_url : String, source_url : String)
-      @source_url = URI.parse(source_url)
-      @url = URI.parse(target_url)
-      @loaded = false
-      self.process_page
+      initialize(source_url)
+      process_page(target_url)
     end
 
     def open(target_url : String)
@@ -44,16 +45,16 @@ module CheckLinks
       response.status_code >= 200 && response.status_code < 300
     end
 
-    def available_hashes(xml_doc)
-      hash_xpath = "string(//@id)"
-      # TODO: Will probably require more work
-      xml_doc.xpath_string(hash_xpath)
+    private def available_hashes(xml_doc)
+      attribute_values(xml_doc, "//@id")
     end
 
-    def outbound_links(xml_doc)
-      link_xpath = "string(//a[@href])"
-      # TODO: Will probably require more work
-      xml_doc.xpath_string(link_xpath)
+    private def outbound_links(xml_doc)
+      attribute_values(xml_doc, "//@href")
+    end
+
+    private def attribute_values(xml_doc, xpath)
+      xml_doc.xpath_nodes(xpath).map{ |n| n.text || ""}.select{ |h| h.size > 0}
     end
   end
 end
