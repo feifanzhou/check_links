@@ -16,43 +16,43 @@ module CheckLinks
 
     it "is loaded if initialized with a URL" do
       target_url = "http://localhost:9999/#{NO_LINKS_OR_HASHES_PATH}"
-      Page.new(target_url, "source.com").loaded?.should be_true
+      Page.new(target_url, "http://localhost").loaded?.should be_true
     end
 
     it "exists if status code is 2xx" do
       target_url = "http://localhost:9999/#{NO_LINKS_OR_HASHES_PATH}"
-      Page.new(target_url, "source.com").exists?.should be_true
+      Page.new(target_url, "http://localhost").exists?.should be_true
     end
 
     it "does not exist if status code isn't 2xx" do
       target_url = "http://localhost:9999/404"
-      Page.new(target_url, "source.com").exists?.should be_false
+      Page.new(target_url, "http://localhost").exists?.should be_false
     end
 
     it "extracts links from every anchor" do
       target_url = "http://localhost:9999/#{LINK_PATH}"
-      page = Page.new(target_url, "source.com")
+      page = Page.new(target_url, "http://localhost")
       page.links.size.should eq(3)
     end
 
     it "extracts correct, absolute links" do
       target_url = "http://localhost:9999/#{LINK_PATH}"
-      links = Page.new(target_url, "http://source.com/page").links
-      links.includes?("http://source.com/1").should be_true
-      links.includes?("http://source.com/page/2").should be_true
+      links = Page.new(target_url, "http://localhost/page").links
+      links.includes?("http://localhost/1").should be_true
+      links.includes?("http://localhost/page/2").should be_true
       links.includes?("http://localhost/3").should be_true
       links.includes?("http://localhost/4").should be_false
     end
 
     it "extracts hashes from every id attribute" do
       target_url = "http://localhost:9999/#{HASH_PATH}"
-      page = Page.new(target_url, "source.com")
+      page = Page.new(target_url, "http://localhost")
       page.hashes.size.should eq(3)
     end
 
     it "extracts the correct hashes" do
       target_url = "http://localhost:9999/#{HASH_PATH}"
-      hashes = Page.new(target_url, "source.com").hashes
+      hashes = Page.new(target_url, "http://localhost").hashes
       hashes.includes?("id1").should be_true
       hashes.includes?("id_2").should be_true
       hashes.includes?("id-3").should be_true
@@ -61,15 +61,27 @@ module CheckLinks
 
     it "extracts the correct links and hashes from a mixed page" do
       target_url = "http://localhost:9999/#{LINKS_AND_HASHES_PATH}"
-      page = Page.new(target_url, "source.com")
+      page = Page.new(target_url, "http://localhost")
       links = page.links
       hashes = page.hashes
       links.size.should eq(3)
       hashes.size.should eq(3)
-      links.includes?("/2").should be_true
+      links.includes?("http://localhost/2").should be_true
       links.includes?("/nope").should be_false
       hashes.includes?("id-3").should be_true
       hashes.includes?("nonexistent").should be_false
+    end
+
+    it "does not find links on pages not part of the source domain" do
+      target_url = "http://localhost:9999/#{LINKS_AND_HASHES_PATH}"
+      page = Page.new(target_url, "http://example.com")
+      page.links.size.should eq(0)
+    end
+
+    it "finds hashes on pages not part of the source domain" do
+      target_url = "http://localhost:9999/#{LINKS_AND_HASHES_PATH}"
+      page = Page.new(target_url, "http://example.com")
+      page.hashes.size.should eq(3)
     end
   end
 end

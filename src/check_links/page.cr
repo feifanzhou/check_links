@@ -1,4 +1,5 @@
 require "http/client"
+require "xml"
 
 class URI
   def absolute_with_host?
@@ -51,6 +52,7 @@ module CheckLinks
 
     def initialize(target_url : String, source_url : String)
       initialize(source_url)
+      @url = URI.parse(target_url)
       process_page(target_url)
     end
 
@@ -73,7 +75,11 @@ module CheckLinks
       @exists = page_exists?(response)
       xml_doc = XML.parse_html(response.body)
       @hashes = available_hashes(xml_doc)
-      @links = outbound_links(xml_doc)
+      if @url.host == @source_url.host
+        @links = outbound_links(xml_doc)
+      else
+        @links = [] of String
+      end
       @loaded = true
     end
 
