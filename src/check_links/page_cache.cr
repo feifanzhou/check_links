@@ -18,6 +18,14 @@ module CheckLinks
       @cache[full_url_without_hash(uri)]?
     end
 
+    def size
+      @cache.size
+    end
+
+    def _cache
+      @cache
+    end
+
     private def full_url_without_hash(url : String)
       full_url_without_hash(URI.parse(url))
     end

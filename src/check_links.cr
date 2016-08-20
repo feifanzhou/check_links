@@ -1,3 +1,4 @@
+require "colorize"
 require "./check_links/*"
 
 $cache = PageCache.new
@@ -6,11 +7,8 @@ module CheckLinks
   def resolved_uri(url : String, source_url : String)
     URI.parse(source_url).resolve_to(URI.parse(url))
   end
-
-  def create_and_cache_page(url : String, source_url : String)
-    page = Page.new(url, source_url)
-    $cache.add_page_for_url(page, resolved_uri(url, source_url))
-    page
+  def resolved_uri(url : String, source_url : URI)
+    source_url.resolve_to(URI.parse(url))
   end
 
   def process_page(url : String)
@@ -18,11 +16,13 @@ module CheckLinks
   end
 
   def process_page(url : String, source_url : String)
-    # p "Processing page #{url}"
-    page = $cache.page_for_url(resolved_uri(url, source_url))
+    cache_key = resolved_uri(url, source_url)
+    page = $cache.page_for_url(cache_key)
     if page.nil?
-      page = create_and_cache_page(url, source_url)
-      page.links.each { |link| p "Found #{link} from #{source_url}"; process_page(link, url) }
+      page = Page.new(source_url)
+      $cache.add_page_for_url(page, cache_key)
+      page.open(url)
+      page.links.each { |link| process_page(link, url) }
     end
   end
 
@@ -31,4 +31,27 @@ module CheckLinks
 end
 
 include CheckLinks
-# process_page("https://docs.layer.com")
+process_page("https://docs.layer.com")
+count = $cache._cache.reduce(0) { |count, (_, page)| page.exists? ? count + 1 : count }
+error_count = $cache._cache.reduce(0) { |count, (_, page)| page.xml_parsing_error? ? count + 1 : count }
+print "Found #{$cache.size} pages, #{count} exist, #{error_count} had HTML parsing error"
+
+$cache._cache.each do |url, page|
+  next unless page.exists? && page.loaded?
+  target_pages = page.links.map { |link| $cache.page_for_url(resolved_uri(link, url)) }
+  # not_founds = target_pages.select { |page| page.nil? ? false : page.not_found? }
+  # errors = target_pages.select { |page| page.nil? ? false : page.xml_parsing_error? }
+  not_founds = [] of CheckLinks::Page
+  errors = [] of CheckLinks::Page
+  target_pages.each do |page|
+    next if page.nil?
+    next unless page.loaded?
+    not_founds << page if page.not_found?
+    errors << page if page.xml_parsing_error?
+  end
+
+  next if not_founds.size == 0 && errors.size == 0
+  print "\n#{url.colorize.mode(:bold)}\n"
+  not_founds.uniq.each { |page| print "| #{page.url}\n" }
+  errors.uniq.each { |page| print "| #{page.url} (parsing error)\n".colorize.fore(:red) }
+end

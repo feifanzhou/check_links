@@ -38,8 +38,10 @@ class URI
 end
 
 module CheckLinks
-  struct Page
+  class Page
     getter :url, :source_url, :hashes, :links
+
+    @xml_error : XML::Error | Nil
 
     def initialize(source_url : String)
       @source_url = URI.parse(source_url)
@@ -48,6 +50,7 @@ module CheckLinks
       @exists = false
       @hashes = [] of String
       @links = [] of String
+      @xml_error = nil
     end
 
     def initialize(target_url : String, source_url : String)
@@ -69,11 +72,36 @@ module CheckLinks
       @exists
     end
 
+    def not_found?
+      !exists?
+    end
+
+    def xml_parsing_error?
+      !@xml_error.nil?
+    end
+
     private def process_page(url_string)
+      return if loaded?
       response = HTTP::Client.get(url_string)
-      # TODO: Handle redirects
+
+      # Handle redirects
+      if response.status_code == 301 || response.status_code == 302
+        location_uri = URI.parse(response.headers["Location"])
+        return process_page(@url.resolve_to(location_uri).to_s)
+      end
+
       @exists = page_exists?(response)
-      xml_doc = XML.parse_html(response.body)
+      begin
+        xml_doc = XML.parse_html(response.body)
+      rescue e : XML::Error
+        p "Error parse XML: #{e}, page: #{@url}"
+        @hashes = [] of String
+        @links = [] of String
+        @exists = false
+        @loaded = true
+        @xml_error = e
+        return
+      end
       @hashes = available_hashes(xml_doc)
       if @url.host == @source_url.host
         @links = outbound_links(xml_doc)
@@ -93,7 +121,15 @@ module CheckLinks
 
     private def outbound_links(xml_doc)
       raw_links = attribute_values(xml_doc, "//@href")
-      raw_links.map { |link| @source_url.resolve_to(URI.parse(link)).to_s }
+      raw_links.map do |link| 
+        if link[0] == '#'
+          _url = @url.dup
+          _url.fragment = link[1..-1]
+          _url.to_s
+        else
+          @source_url.resolve_to(URI.parse(link)).to_s
+        end
+      end
     end
 
     private def attribute_values(xml_doc, xpath)
