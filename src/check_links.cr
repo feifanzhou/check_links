@@ -38,20 +38,29 @@ print "Found #{$cache.size} pages, #{count} exist, #{error_count} had HTML parsi
 
 $cache._cache.each do |url, page|
   next unless page.exists? && page.loaded?
-  target_pages = page.links.map { |link| $cache.page_for_url(resolved_uri(link, url)) }
+  target_pages = page.links.map do |link|
+    uri = resolved_uri(link, url)
+    { uri, $cache.page_for_url(uri) }
+  end
   # not_founds = target_pages.select { |page| page.nil? ? false : page.not_found? }
   # errors = target_pages.select { |page| page.nil? ? false : page.xml_parsing_error? }
-  not_founds = [] of CheckLinks::Page
-  errors = [] of CheckLinks::Page
-  target_pages.each do |page|
+  not_founds = [] of String
+  not_found_hashes = [] of String
+  errors = [] of String
+  target_pages.each do |uri, page|
     next if page.nil?
     next unless page.loaded?
-    not_founds << page if page.not_found?
-    errors << page if page.xml_parsing_error?
+    not_founds << page.url.to_s if page.not_found?
+    not_found_hashes << uri.to_s if uri.fragment && !page.hashes.includes?(uri.fragment)
+    errors << page.url.to_s if page.xml_parsing_error?
   end
+  uniq_not_founds = not_founds.uniq
+  uniq_not_found_hashes = not_found_hashes.uniq - uniq_not_founds
+  uniq_errors = errors.uniq
 
   next if not_founds.size == 0 && errors.size == 0
   print "\n#{url.colorize.mode(:bold)}\n"
-  not_founds.uniq.each { |page| print "| #{page.url}\n" }
-  errors.uniq.each { |page| print "| #{page.url} (parsing error)\n".colorize.fore(:red) }
+  uniq_not_founds.each { |page_url| print "| #{page_url}\n" }
+  uniq_not_found_hashes.each { |uri| print "| #{uri.colorize.fore(:yellow)}\n" }
+  uniq_errors.each { |page_url| print "| #{page_url} (parsing error)\n".colorize.fore(:red) }
 end
