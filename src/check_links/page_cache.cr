@@ -31,14 +31,16 @@ module CheckLinks
     end
 
     private def full_url_without_hash(uri : URI)
+      scheme = uri.scheme
       host = uri.host
+      port = uri.port
       path = uri.full_path
-      if host.nil? 
+      if host.nil?
         raise ArgumentError.new("Cannot parse host from URL #{uri}")
       elsif path.nil?
         raise ArgumentError.new("Cannot parse full path from URL #{uri}")
       else
-        return host + path
+        return (scheme ? "#{scheme}://" : "") + host + (port ? ":#{port}" : "") + path
       end
     end
   end
