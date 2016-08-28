@@ -26,12 +26,26 @@ module CheckLinks
     end
   end
 
-  def process_page(url : String, parent_channel, source_url : String)
+  def process_page(url : String, limit : UInt8)
+    process_page_limit(url, url, limit)
+  end
+  def process_page(url : String, source_url : String, limit : UInt8)
+    p "Processing #{url}"
+    cache_key = resolved_uri(url, source_url)
+    page = $cache.page_for_url(cache_key)
+    if page.nil?
+      page = Page.new(source_url)
+      $cache.add_page_for_url(page, cache_key)
+      page.open(url)
+      if limit > 0
+        page.links.each { |link| process_page_limit(link, url, limit - 1) }
+      end
+    end
   end
 end
 
 include CheckLinks
-process_page("https://docs.layer.com")
+process_page("http://localhost:3000/")
 count = $cache._cache.reduce(0) { |count, (_, page)| page.exists? ? count + 1 : count }
 error_count = $cache._cache.reduce(0) { |count, (_, page)| page.xml_parsing_error? ? count + 1 : count }
 print "Found #{$cache.size} pages, #{count} exist, #{error_count} had HTML parsing error"
