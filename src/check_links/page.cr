@@ -18,6 +18,24 @@ class URI
     self.full_path == "/"
   end
 
+  def append_path_component(component : String)
+    self.path = "#{self.full_path}/#{component}".gsub(/\/\//, "/")
+    self
+  end
+
+  def pop_last_path_component
+    fp = self.full_path
+    return self if fp == "/"
+    fp = fp[0...-1] if fp.char_at(-1) == '/'
+    components = self.full_path.split("/")
+    self.path = "#{components[0...-1].join("/")}"
+    self
+  end
+
+  def replace_last_path_component(new_component : String)
+    pop_last_path_component.append_path_component(new_component)
+  end
+
   def resolve_to(target_url)
     clone = self.dup
     if target_url.absolute_with_host?
@@ -28,8 +46,7 @@ class URI
       clone_host = clone.host || ""
       clone.path = target_url.to_s
     elsif target_url.relative?
-      appendable_target = clone.full_path.char_at(-1) == '/' ? target_url.to_s : "/#{target_url}"
-      clone.path = "#{clone.full_path}#{appendable_target}"
+      clone.replace_last_path_component(target_url.to_s)
     else
       raise Exception.new("Unknown condition resolving #{clone.to_s} to #{target_url.to_s}")
     end
@@ -39,9 +56,10 @@ end
 
 module CheckLinks
   class Page
-    getter :url, :source_url, :hashes, :links
+    getter :url, :source_url, :hashes, :links, :raw_links
 
     @xml_error : XML::Error | Nil
+    @raw_links : Array(String)
 
     def initialize(source_url : String)
       @source_url = URI.parse(source_url)
@@ -51,6 +69,7 @@ module CheckLinks
       @hashes = [] of String
       @links = [] of String
       @xml_error = nil
+      @raw_links = [] of String
     end
 
     def initialize(target_url : String, source_url : String)
@@ -121,7 +140,8 @@ module CheckLinks
 
     private def outbound_links(xml_doc)
       raw_links = attribute_values(xml_doc, "//@href")
-      raw_links.map do |link| 
+      @raw_links = raw_links
+      raw_links.map do |link|
         if link[0] == '#'
           _url = @url.dup
           _url.fragment = link[1..-1]

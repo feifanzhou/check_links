@@ -27,19 +27,19 @@ module CheckLinks
   end
 
   def process_page(url : String, limit : UInt8)
-    process_page_limit(url, url, limit)
+    process_page(url, url, limit)
   end
   def process_page(url : String, source_url : String, limit : UInt8)
-    p "Processing #{url}"
+    # p "Processing #{url}"
     cache_key = resolved_uri(url, source_url)
     page = $cache.page_for_url(cache_key)
     if page.nil?
       page = Page.new(source_url)
       $cache.add_page_for_url(page, cache_key)
       page.open(url)
-      if limit > 0
-        page.links.each { |link| process_page_limit(link, url, limit - 1) }
-      end
+      p "Links for #{url}: #{page.links}"
+      p "Raw links for #{url}: #{page.raw_links}"
+      page.links.each { |link| process_page(link, url, limit - 1) } if limit > 0
     end
   end
 end
