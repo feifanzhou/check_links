@@ -5,7 +5,7 @@ Crawls links from a starting page and display the ones that go nowhere.
 You'll need to install [Crystal](https://crystal-lang.org/docs/installation/on_mac_osx_using_homebrew.html)
 
 ## Usage
-Currently it's [hardcoded](https://github.com/feifanzhou/check_links/blob/master/src/check_links.cr#L34) to `https://docs.layer.com`. Change that if you need to point it to somewhere else.
+Currently it's [hardcoded](https://github.com/feifanzhou/check_links/blob/master/src/check_links.cr#L48) to `http://localhost:3000`. Change that if you need to point it to somewhere else.
 
 Then `cd` and run `crystal src/check_links.cr`. You can also [compile an executable](https://crystal-lang.org/docs/using_the_compiler/index.html) if desired.
 
